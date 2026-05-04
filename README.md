@@ -62,6 +62,31 @@ caveat in its description.
 - **Labor law** — Labor Standards Act / 労働基準法 — `law_id` `322AC0000000049` — https://laws.e-gov.go.jp/law/322AC0000000049
 - **Privacy / APPI** — Act on the Protection of Personal Information / 個人情報の保護に関する法律 — `law_id` `415AC0000000057` — https://laws.e-gov.go.jp/law/415AC0000000057
 
+## Performance
+
+Measured against the production deployment with [`scripts/bench.sh`](scripts/bench.sh) — 5 tools × 3 calls each (n=15):
+
+| Metric | Value |
+| --- | --- |
+| p50 (warm, KV cache hit) | **196 ms** |
+| p95 (includes first cold call per tool) | **979 ms** |
+| min | 114 ms |
+| max | 979 ms |
+
+Per-tool first-call vs cache-warm, seconds:
+
+| Tool | First call (cold) | Warm (cache hit) |
+| --- | --- | --- |
+| `list_categories` | 0.98 | 0.23–0.24 |
+| `search_law` | 0.12 | 0.20–0.28 |
+| `get_law_metadata` | 0.35 | 0.11–0.14 |
+| `get_article` | 0.76 | 0.13 |
+| `compare_revisions` | 0.66 | 0.18 |
+
+Cold latency is bounded by the e-Gov upstream — `/law_data` for the Companies Act alone transfers ~2.7 MB of JSON. Warm calls come from Workers KV with a **24-hour TTL** (laws change slowly, so identical `(endpoint, params)` tuples stay valid for a day). `list_categories` is the slowest cold call because it issues three sequential `/laws` lookups, one per v1 domain.
+
+Capacity: Cloudflare Workers free tier (100k requests/day per Worker, 1000 req/min burst).
+
 ## Source attribution
 
 Data is provided by the **Digital Agency** and the **Ministry of Justice** of
