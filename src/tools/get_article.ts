@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
 	type ArticleRef,
+	arabicToKanjiNum,
+	expectedArticleTitle,
 	formatArticleRefJa,
 	parseArticleRef,
 } from "../egov/article_parser";
@@ -41,25 +43,35 @@ export interface GetArticleOutput {
 	source_url: string;
 }
 
-// e-Gov encodes branch articles as `Num="<n>_<branch>"`, e.g. "325_3" for
-// 第325条の3. Build the matching string for our parsed reference.
-function expectedNum(ref: ArticleRef): string {
-	if (ref.article_branch) {
-		const m = ref.article_branch.match(/の(\d+)/);
-		const branchNum = m ? m[1] : ref.article_branch;
-		return `${ref.article}_${branchNum}`;
+// Recursively walk MainProvision-like trees and collect every Article node.
+//
+// e-Gov "light" responses embed Articles arbitrarily deep inside the
+// Part / Chapter / Section / Subsection / Division hierarchy, so a flat
+// `MainProvision.Article[]` lookup misses everything but the simplest laws.
+// We use the presence of `ArticleTitle` as the discriminator — it's the only
+// field that's both required and unique to Article nodes in v2 responses.
+export function walkArticles(node: unknown, out: EgovArticleLight[]): void {
+	if (!node || typeof node !== "object") return;
+	if (Array.isArray(node)) {
+		for (const it of node) walkArticles(it, out);
+		return;
 	}
-	return String(ref.article);
+	const obj = node as Record<string, unknown>;
+	if ("ArticleTitle" in obj) {
+		out.push(obj as EgovArticleLight);
+		return;
+	}
+	for (const v of Object.values(obj)) walkArticles(v, out);
 }
 
-export function findArticle(
+export function findArticleByTitle(
 	articles: EgovArticleLight[],
 	ref: ArticleRef,
 ): EgovArticleLight | undefined {
-	const want = expectedNum(ref);
+	const want = expectedArticleTitle(ref);
 	for (const a of articles) {
-		const n = numAttr(a);
-		if (n === want) return a;
+		const title = textOf((a as Record<string, unknown>).ArticleTitle);
+		if (title === want) return a;
 	}
 	return undefined;
 }
@@ -68,24 +80,34 @@ export function findParagraph(
 	paragraphs: EgovParagraphLight[],
 	num: number,
 ): EgovParagraphLight | undefined {
+	const want = String(num);
 	for (const p of paragraphs) {
-		if (numAttr(p) === String(num)) return p;
+		if (numAttr(p) === want) return p;
 	}
 	return undefined;
 }
 
-export function findItem(items: EgovItemLight[], num: number): EgovItemLight | undefined {
+export function findItemByTitle(
+	items: EgovItemLight[],
+	num: number,
+): EgovItemLight | undefined {
+	const want = arabicToKanjiNum(num);
 	for (const it of items) {
-		if (numAttr(it) === String(num)) return it;
+		const title = textOf((it as Record<string, unknown>).ItemTitle);
+		if (title === want) return it;
 	}
 	return undefined;
 }
 
-// Depth-first text collection. Skips attribute-style keys (those starting with
-// "@"), structural Num fields, and anything we treat as metadata. The result
-// is a best-effort plain-text rendering of the article body.
+// Depth-first text collection. We skip the structural `*Title` and `Num`
+// fields because they're administrative labels, not body text — surfacing them
+// would inject "第百七条" / "1" / "２" markers into the middle of paragraphs.
+// `ItemTitle` ("一", "二") is preserved because in a paragraph context the
+// kanji label is what makes the list of items readable.
 const SKIP_KEYS = new Set([
+	"ArticleTitle",
 	"Num",
+	"ParagraphNum",
 	"Delete",
 	"Hide",
 	"OldStyle",
@@ -141,13 +163,20 @@ export function extractFromLawData(
 	if (!lawBody || typeof lawBody !== "object") {
 		throw new EgovApiError(0, "e-Gov law_full_text missing LawBody", false);
 	}
+
+	// Walk MainProvision (and SupplProvision as a fallback for laws whose
+	// articles are entirely in the appendix). Most v1 lookups land in
+	// MainProvision; SupplProvision rarely carries top-level Articles but
+	// when it does they're indexed the same way.
+	const articles: EgovArticleLight[] = [];
 	const main = (lawBody as { MainProvision?: unknown }).MainProvision;
-	const articles = asArray<EgovArticleLight>(
-		main && typeof main === "object"
-			? ((main as { Article?: EgovArticleLight | EgovArticleLight[] }).Article)
-			: undefined,
-	);
-	const article = findArticle(articles, ref);
+	if (main) walkArticles(main, articles);
+	if (articles.length === 0) {
+		const suppl = (lawBody as { SupplProvision?: unknown }).SupplProvision;
+		if (suppl) walkArticles(suppl, articles);
+	}
+
+	const article = findArticleByTitle(articles, ref);
 	if (!article) {
 		throw new EgovApiError(
 			"article_not_found",
@@ -156,7 +185,10 @@ export function extractFromLawData(
 		);
 	}
 
-	const articleNumber = formatArticleRefJa({ article: ref.article, article_branch: ref.article_branch });
+	const articleNumber = formatArticleRefJa({
+		article: ref.article,
+		article_branch: ref.article_branch,
+	});
 	const result: ExtractedArticle = {
 		article_number: articleNumber,
 		article_text: collectText(article),
@@ -174,8 +206,10 @@ export function extractFromLawData(
 		}
 		result.paragraph = collectText(para);
 		if (ref.item !== undefined) {
-			const items = asArray<EgovItemLight>(para.Item);
-			const item = findItem(items, ref.item);
+			const items = asArray<EgovItemLight>(
+				(para as Record<string, unknown>).Item as EgovItemLight | EgovItemLight[] | undefined,
+			);
+			const item = findItemByTitle(items, ref.item);
 			if (!item) {
 				throw new EgovApiError(
 					"item_not_found",

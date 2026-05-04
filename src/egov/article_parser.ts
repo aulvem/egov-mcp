@@ -114,3 +114,54 @@ export function formatArticleRefJa(ref: ArticleRef): string {
 	if (ref.item !== undefined) out += `第${ref.item}号`;
 	return out;
 }
+
+// e-Gov's "light" JSON renders article and item numbers as kanji strings
+// (e.g. ArticleTitle "第百七条", ItemTitle "一"). To match these against a
+// numeric ArticleRef we convert in the forward direction (arabic → kanji).
+//
+// Supports 1..99999 — well above the largest article counts we'd ever see in
+// a Japanese statute (the longest, 民法, has under 1100 articles).
+const KANJI_DIGITS = ["", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+
+export function arabicToKanjiNum(n: number): string {
+	if (!Number.isInteger(n) || n < 0) return String(n);
+	if (n === 0) return "〇";
+	let out = "";
+	let rem = n;
+	if (rem >= 10000) {
+		const d = Math.floor(rem / 10000);
+		out += arabicToKanjiNum(d) + "万";
+		rem %= 10000;
+		if (rem === 0) return out;
+	}
+	if (rem >= 1000) {
+		const d = Math.floor(rem / 1000);
+		out += (d === 1 ? "" : KANJI_DIGITS[d]) + "千";
+		rem %= 1000;
+	}
+	if (rem >= 100) {
+		const d = Math.floor(rem / 100);
+		out += (d === 1 ? "" : KANJI_DIGITS[d]) + "百";
+		rem %= 100;
+	}
+	if (rem >= 10) {
+		const d = Math.floor(rem / 10);
+		out += (d === 1 ? "" : KANJI_DIGITS[d]) + "十";
+		rem %= 10;
+	}
+	if (rem > 0) {
+		out += KANJI_DIGITS[rem];
+	}
+	return out;
+}
+
+// Build the canonical kanji ArticleTitle e-Gov uses to label this article.
+// Examples:
+//   { article: 107 }                        → "第百七条"
+//   { article: 325, article_branch: "の3" } → "第三百二十五条の三"
+export function expectedArticleTitle(ref: ArticleRef): string {
+	const branch = ref.article_branch
+		? ref.article_branch.replace(/(\d+)/, (_, d) => arabicToKanjiNum(Number(d)))
+		: "";
+	return `第${arabicToKanjiNum(ref.article)}条${branch}`;
+}

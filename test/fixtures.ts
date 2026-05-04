@@ -150,10 +150,10 @@ export const SAMPLE_LAWS_LIST_EMPTY = {
 };
 
 // ---------------------------------------------------------------------------
-// Sample /law_data (json_format=light) response. Includes:
-//   Article 9 with 2 paragraphs, paragraph 2 has Item 1 and Item 2
-//   Article 107 (no paragraphs)
-//   Article 325 with branch _3 (i.e. 第325条の3)
+// Sample /law_data (json_format=light) response. Mirrors the real e-Gov v2
+// shape: Article identity carried in `ArticleTitle` (kanji like "第百七条"),
+// items in `ItemTitle` (kanji like "一"), Sentence as a string array. Articles
+// are nested inside Part → Chapter to exercise the recursive walkArticles path.
 // ---------------------------------------------------------------------------
 export const SAMPLE_LAW_DATA_COMPANIES = {
 	law_info: {
@@ -171,42 +171,65 @@ export const SAMPLE_LAW_DATA_COMPANIES = {
 			LawBody: {
 				LawTitle: "会社法",
 				MainProvision: {
-					Article: [
+					Part: [
 						{
-							Num: "9",
-							ArticleTitle: "第九条",
-							Paragraph: [
+							PartTitle: ["第一編　総則"],
+							Chapter: [
 								{
-									Num: "1",
-									ParagraphSentence: { Sentence: "第九条第一項の本文。" },
-								},
-								{
-									Num: "2",
-									ParagraphSentence: { Sentence: "第九条第二項の柱書。" },
-									Item: [
-										{ Num: "1", ItemSentence: { Sentence: "第一号の文言。" } },
-										{ Num: "2", ItemSentence: { Sentence: "第二号の文言。" } },
+									ChapterTitle: ["第二章　会社の商号"],
+									Article: [
+										{
+											ArticleCaption: "（会社の商号）",
+											ArticleTitle: "第九条",
+											Paragraph: [
+												{
+													ParagraphNum: null,
+													Num: "1",
+													ParagraphSentence: { Sentence: ["第九条第一項の本文。"] },
+												},
+												{
+													ParagraphNum: "２",
+													Num: "2",
+													ParagraphSentence: { Sentence: ["第九条第二項の柱書。"] },
+													Item: [
+														{ ItemTitle: "一", ItemSentence: { Sentence: ["第一号の文言。"] } },
+														{ ItemTitle: "二", ItemSentence: { Sentence: ["第二号の文言。"] } },
+													],
+												},
+											],
+										},
 									],
 								},
 							],
 						},
 						{
-							Num: "107",
-							ArticleTitle: "第百七条",
-							Paragraph: [
+							PartTitle: ["第二編　株式会社"],
+							Chapter: [
 								{
-									Num: "1",
-									ParagraphSentence: { Sentence: "第百七条の本文。" },
-								},
-							],
-						},
-						{
-							Num: "325_3",
-							ArticleTitle: "第三百二十五条の三",
-							Paragraph: [
-								{
-									Num: "1",
-									ParagraphSentence: { Sentence: "枝条文の本文。" },
+									ChapterTitle: ["第二章　株式"],
+									Article: [
+										{
+											ArticleCaption: "（株式の内容についての特別の定め）",
+											ArticleTitle: "第百七条",
+											Paragraph: [
+												{
+													ParagraphNum: null,
+													Num: "1",
+													ParagraphSentence: { Sentence: ["第百七条の本文。"] },
+												},
+											],
+										},
+										{
+											ArticleTitle: "第三百二十五条の三",
+											Paragraph: [
+												{
+													ParagraphNum: null,
+													Num: "1",
+													ParagraphSentence: { Sentence: ["枝条文の本文。"] },
+												},
+											],
+										},
+									],
 								},
 							],
 						},
@@ -234,14 +257,34 @@ export const SAMPLE_LAW_DATA_COMPANIES_OLD = {
 			LawBody: {
 				LawTitle: "会社法",
 				MainProvision: {
-					Article: [
+					Part: [
 						{
-							Num: "9",
-							ArticleTitle: "第九条",
-							Paragraph: [
+							PartTitle: ["第一編　総則"],
+							Chapter: [
 								{
-									Num: "1",
-									ParagraphSentence: { Sentence: "第九条第一項の旧本文。" },
+									ChapterTitle: ["第二章　会社の商号"],
+									Article: [
+										{
+											ArticleTitle: "第九条",
+											Paragraph: [
+												{
+													ParagraphNum: null,
+													Num: "1",
+													ParagraphSentence: { Sentence: ["第九条第一項の旧本文。"] },
+												},
+											],
+										},
+										{
+											ArticleTitle: "第百七条",
+											Paragraph: [
+												{
+													ParagraphNum: null,
+													Num: "1",
+													ParagraphSentence: { Sentence: ["第百七条の本文。"] },
+												},
+											],
+										},
+									],
 								},
 							],
 						},

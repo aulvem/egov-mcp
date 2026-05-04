@@ -35,7 +35,10 @@ describe("get_article", () => {
 		});
 		expect(out.article_number).toBe("第9条");
 		expect(out.paragraph).toContain("第二号"); // paragraph contains both items' text
-		expect(out.item).toBe("第一号の文言。");
+		// Item text includes the kanji marker that prefixes it in the source
+		// (e.g. "一" before the body) — that's how the law renders the list.
+		expect(out.item).toContain("第一号の文言。");
+		expect(out.item?.startsWith("一")).toBe(true);
 	});
 
 	it("handles branch articles (第325条の3)", async () => {
