@@ -174,3 +174,11 @@ dist
 .dev.vars*
 !.dev.vars.example
 !.env.example
+
+# Bench/probe scratch dirs
+tmp/
+
+# Claude Code local user settings — may contain personal MCP server tokens.
+# Project-shared Claude config (skills/agents) is fine to commit; this file
+# specifically is per-machine.
+.claude/settings.local.json

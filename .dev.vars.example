@@ -1,0 +1,13 @@
+# Local development secrets. Copy this file to `.dev.vars` and fill in real
+# values. `.dev.vars` is gitignored. For production, set the same names via
+# `wrangler secret put <NAME>` instead.
+#
+# Note: e-Gov's law API is open data — no application ID is required to call
+# it. The only secret here is the gateway bearer token.
+
+# Bearer token required on every /mcp request. /health is unauthenticated.
+# In production this is set with `wrangler secret put MCP_HIVE_TOKEN` and the
+# same value is configured in the MCP-Hive gateway as the upstream Header.
+# For local dev, use any throwaway value (NOT the production token) — a
+# `dev-only-` prefix is recommended so logs make the distinction obvious.
+MCP_HIVE_TOKEN="dev-only-replace-me"

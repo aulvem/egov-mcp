@@ -1,63 +1,31 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { McpAgent } from "agents/mcp";
-import { z } from "zod";
+import { EgovMcp } from "./mcp";
 
-// Define our MCP agent with tools
-export class MyMCP extends McpAgent {
-	server = new McpServer({
-		name: "Authless Calculator",
-		version: "1.0.0",
+export { EgovMcp };
+
+// Authorization check for /mcp.
+//
+// We deliberately:
+//   - Reject when MCP_HIVE_TOKEN is unset (fail closed; never authless).
+//   - Use plain `===` for now. Workers' edge response time jitter dwarfs the
+//     timing channel of a string compare, so the practical attack surface is
+//     low. TODO(v1.2): switch to a constant-time compare if a security review
+//     flags it.
+//   - Return only "Unauthorized" with no diagnostic detail. Never log the
+//     token, the received header, or any length/prefix hint that could help
+//     guess the secret.
+function isAuthorized(request: Request, env: Env): boolean {
+	const expected = env.MCP_HIVE_TOKEN;
+	if (!expected) return false;
+	const header = request.headers.get("authorization");
+	if (!header) return false;
+	return header === `Bearer ${expected}`;
+}
+
+function unauthorized(): Response {
+	return new Response("Unauthorized", {
+		status: 401,
+		headers: { "WWW-Authenticate": "Bearer" },
 	});
-
-	async init() {
-		// Simple addition tool
-		this.server.registerTool(
-			"add",
-			{ inputSchema: { a: z.number(), b: z.number() } },
-			async ({ a, b }) => ({
-				content: [{ type: "text", text: String(a + b) }],
-			}),
-		);
-
-		// Calculator tool with multiple operations
-		this.server.registerTool(
-			"calculate",
-			{
-				inputSchema: {
-					operation: z.enum(["add", "subtract", "multiply", "divide"]),
-					a: z.number(),
-					b: z.number(),
-				},
-			},
-			async ({ operation, a, b }) => {
-				let result: number;
-				switch (operation) {
-					case "add":
-						result = a + b;
-						break;
-					case "subtract":
-						result = a - b;
-						break;
-					case "multiply":
-						result = a * b;
-						break;
-					case "divide":
-						if (b === 0)
-							return {
-								content: [
-									{
-										type: "text",
-										text: "Error: Cannot divide by zero",
-									},
-								],
-							};
-						result = a / b;
-						break;
-				}
-				return { content: [{ type: "text", text: String(result) }] };
-			},
-		);
-	}
 }
 
 export default {
@@ -65,7 +33,21 @@ export default {
 		const url = new URL(request.url);
 
 		if (url.pathname === "/mcp") {
-			return MyMCP.serve("/mcp").fetch(request, env, ctx);
+			if (!isAuthorized(request, env)) {
+				return unauthorized();
+			}
+			return EgovMcp.serve("/mcp").fetch(request, env, ctx);
+		}
+
+		if (url.pathname === "/" || url.pathname === "/health") {
+			return new Response(
+				JSON.stringify({
+					name: "japan-legal-mcp",
+					version: "1.0.0",
+					mcp_endpoint: "/mcp",
+				}),
+				{ headers: { "content-type": "application/json" } },
+			);
 		}
 
 		return new Response("Not found", { status: 404 });

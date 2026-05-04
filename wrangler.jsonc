@@ -17,7 +17,7 @@
 	"migrations": [
 		{
 			"new_sqlite_classes": [
-				"MyMCP"
+				"EgovMcp"
 			],
 			"tag": "v1"
 		}
@@ -25,11 +25,20 @@
 	"durable_objects": {
 		"bindings": [
 			{
-				"class_name": "MyMCP",
+				"class_name": "EgovMcp",
 				"name": "MCP_OBJECT"
 			}
 		]
 	},
+	// KV cache for e-Gov API responses (24-hour TTL).
+	// Provision once with: `npx wrangler kv namespace create EGOV_CACHE`
+	// then paste the returned id into the `id` field below.
+	"kv_namespaces": [
+		{
+			"binding": "EGOV_CACHE",
+			"id": "f59c17c718f34ac59ef13e426d48f635"
+		}
+	],
 	"observability": {
 		"enabled": true
 	},
