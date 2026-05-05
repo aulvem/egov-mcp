@@ -239,7 +239,7 @@ Stop and ask the user before running these:
 wrangler kv namespace create EGOV_CACHE and update wrangler.jsonc with the returned ID
 wrangler secret put MCP_HIVE_TOKEN (interactive — user pastes value, generate fresh 64-char token same pattern as estat-mcp)
 wrangler deploy
-Verify production URL https://egov-mcp.laulveml.workers.dev/mcp responds with auth (200 with valid Bearer, 401 without)
+Verify production URL https://<your-subdomain>.workers.dev/mcp responds with auth (200 with valid Bearer, 401 without)
 Verify /health returns 200 without auth
 
 README.md (English)

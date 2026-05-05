@@ -8,7 +8,7 @@
 # characters. Always send via file when the body contains non-ASCII.
 set -uo pipefail
 
-URL="${URL:-https://egov-mcp.laulveml.workers.dev/mcp}"
+MCP_URL="${MCP_URL:-https://your-subdomain.workers.dev/mcp}"
 ITERS="${ITERS:-3}"
 TMP="${TMP:-tmp/bench}"
 mkdir -p "$TMP"
@@ -25,7 +25,7 @@ fi
 cat > "$TMP/init.json" <<'EOF'
 {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"bench","version":"0"}}}
 EOF
-INIT_RESP=$(curl -sS -i -X POST "$URL" "${HEADERS[@]}" --data-binary @"$TMP/init.json")
+INIT_RESP=$(curl -sS -i -X POST "$MCP_URL" "${HEADERS[@]}" --data-binary @"$TMP/init.json")
 SID=$(printf '%s' "$INIT_RESP" | grep -i '^mcp-session-id:' | awk '{print $2}' | tr -d '\r\n')
 if [[ -z "$SID" ]]; then
   echo "ERROR: no session id (auth?)" >&2
@@ -38,13 +38,13 @@ SH=(-H "Mcp-Session-Id: $SID")
 cat > "$TMP/notif.json" <<'EOF'
 {"jsonrpc":"2.0","method":"notifications/initialized","params":{}}
 EOF
-curl -sS -X POST "$URL" "${HEADERS[@]}" "${SH[@]}" --data-binary @"$TMP/notif.json" >/dev/null
+curl -sS -X POST "$MCP_URL" "${HEADERS[@]}" "${SH[@]}" --data-binary @"$TMP/notif.json" >/dev/null
 
 # Helper: write body to file, time the call, print "<seconds>\t<http_code>\t<body>"
 call_tool_file() {
   local file="$1"
   local out
-  out=$(curl -sS -X POST "$URL" "${HEADERS[@]}" "${SH[@]}" --data-binary @"$file" \
+  out=$(curl -sS -X POST "$MCP_URL" "${HEADERS[@]}" "${SH[@]}" --data-binary @"$file" \
     -w $'\n__TIME__%{time_total}\n__CODE__%{http_code}\n')
   local time
   time=$(printf '%s' "$out" | awk -F'__TIME__' '/__TIME__/ {print $2}' | head -1)
